@@ -1,0 +1,11 @@
+{
+    "platform": "Zindi",
+    "challenge_type": "AI Challenge",
+    "description": "Predict crop yields from satellite imagery in Africa",
+    "title": "African Crop Yield Prediction",
+    "problem_statement": "Develop a model to predict crop yields using satellite data",
+    "dataset": "Sentinel-2 satellite images with ground truth data",
+    "evaluation": "RMSE metric on test set",
+    "timeline": {"submission_days": 45},
+    "prizes": {"first_place": 10000, "second_place": 5000}
+  }

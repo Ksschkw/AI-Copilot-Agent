@@ -1,0 +1,14 @@
+{
+    "platform": "Zindi",
+    "challenge_type": "AI Challenge",
+    "fields": {
+      "title": {"required": true, "description": "Challenge title"},
+      "problem_statement": {"required": true, "description": "Detailed problem description"},
+      "dataset": {"required": true, "description": "Dataset information"},
+      "evaluation": {"required": true, "description": "Evaluation methodology"},
+      "submission_instructions": {"required": true, "description": "How to submit solutions"},
+      "timeline": {"required": true, "description": "Challenge schedule"},
+      "prizes": {"required": true, "description": "Prize information"},
+      "data_usage_agreement": {"required": true, "description": "Data usage terms"}
+    }
+  }

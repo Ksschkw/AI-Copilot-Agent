@@ -2,12 +2,13 @@
     "platform": "Kaggle",
     "challenge_type": "Data Science",
     "fields": {
-      "title": {"required": true},
-      "overview": {"required": true},
-      "objectives": {"required": true},
-      "dataset": {"required": true},
-      "evaluation_metric": {"required": true},
-      "timeline": {"required": true},
-      "prize_structure": {"required": true}
+      "title": {"required": true, "description": "Challenge title"},
+      "problem_description": {"required": true, "description": "Detailed problem statement"},
+      "dataset": {"required": true, "description": "Dataset source and description"},
+      "evaluation_metric": {"required": true, "description": "Performance metric"},
+      "submission_format": {"required": true, "description": "Required submission format"},
+      "timeline": {"required": true, "description": "Competition phases"},
+      "prizes": {"required": true, "description": "Prize details"},
+      "code_requirements": {"required": false, "description": "Technical constraints"}
     }
   }

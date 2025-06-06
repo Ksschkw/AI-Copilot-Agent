@@ -1,0 +1,14 @@
+{
+    "platform": "HeroX",
+    "challenge_type": "Innovation",
+    "fields": {
+      "title": {"required": true, "description": "Challenge title"},
+      "problem_statement": {"required": true, "description": "Detailed problem description"},
+      "solution_requirements": {"required": true, "description": "Solution specifications"},
+      "submission_guidelines": {"required": true, "description": "Submission requirements"},
+      "evaluation_criteria": {"required": true, "description": "Judging criteria"},
+      "timeline": {"required": true, "description": "Challenge phases and deadlines"},
+      "prize_structure": {"required": true, "description": "Prize details"},
+      "intellectual_property": {"required": false, "description": "IP rights information"}
+    }
+  }

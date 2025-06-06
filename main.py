@@ -1,175 +1,248 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from dotenv import load_dotenv
 import os
 import json
 import requests
-from rag import retrieve_similar_challenges
-import cv2
-import numpy as np
 import logging
+import uuid
+import base64
+from dotenv import load_dotenv
+from rag import retrieve_similar_challenges
+from typing import Dict, Any, Optional
 
 # Setup logging
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 load_dotenv()
-API_KEY = os.getenv("HUGGINGFACE_API_KEY")
-if not API_KEY:
-    raise HTTPException(status_code=500, detail="Hugging Face API key not found")
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+if not OPENROUTER_API_KEY:
+    raise HTTPException(status_code=500, detail="OpenRouter API key not found")
 
 app = FastAPI()
 
 # CORS configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://127.0.0.1:5500"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Hugging Face API endpoint
-MODEL_ENDPOINT = "https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1"
+# Session state management
+sessions: Dict[str, Dict] = {}
 
-# Prompt template
-def format_prompt(user_input, context):
-    return f"""
-System: You are an AI Copilot Agent helping users define challenge specs for platforms like Topcoder or Kaggle. Respond directly to the user's input with a single question or statement to understand their goal or refine the scope. Do not assume further user responses or generate multi-turn conversations.
-Context: {context}
-
-User: {user_input}
-
-Assistant:
-"""
-
-# In-memory state
-state = {"fields": {}, "reasoning_trace": [], "platform": None, "challenge_type": None}
-feedback = {}
-
-# Schema loading
-def load_schema(platform: str, challenge_type: str):
-    schema_file = f"schemas/{platform.lower()}_{challenge_type.lower()}.json"
-    try:
-        with open(schema_file, "r") as f:
-            schema = json.load(f)
-        return schema
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="Schema not found")
-
-# Feedback storage
-def store_feedback(field, suggestion, accepted, reason=None):
-    if field not in feedback:
-        feedback[field] = []
-    feedback[field].append({
-        "suggestion": suggestion,
-        "accepted": accepted,
-        "reason": reason
-    })
-
-# Generate spec
-def generate_spec():
-    return {
-        "fields": state["fields"],
-        "reasoning_trace": state["reasoning_trace"]
-    }
-
-# API Endpoints
 class ScopeInput(BaseModel):
     user_input: str
-    platform: str | None = None
-    challenge_type: str | None = None
-
-@app.post("/scope")
-async def scope_dialogue(input: ScopeInput):
-    logger.debug(f"Received input: {input.user_input}")
-    try:
-        # Placeholder context until retrieve_similar_challenges is implemented
-        context = [{"challenge": "placeholder"}]
-        context_str = json.dumps(context, indent=2)
-        logger.debug(f"Context: {context_str}")
-
-        # Format the prompt
-        prompt = format_prompt(input.user_input, context_str)
-
-        # API call to Hugging Face
-        headers = {
-            "Authorization": f"Bearer {API_KEY}",
-            "Content-Type": "application/json"
-        }
-        payload = {
-            "inputs": prompt,
-            "parameters": {
-                "max_new_tokens": 512,
-                "temperature": 0.7,
-                "return_full_text": False,  # Only return generated text
-                "stop": ["User:", "System:"]  # Stop before multi-turn generation
-            }
-        }
-        response = requests.post(MODEL_ENDPOINT, headers=headers, json=payload)
-        
-        if response.status_code != 200:
-            raise Exception(f"API request failed with status {response.status_code}: {response.text}")
-        
-        response_text = response.json()[0]["generated_text"].strip()
-        logger.debug(f"LLM response: {response_text}")
-        return {"response": response_text}
-    except Exception as e:
-        logger.error(f"Error in scope_dialogue: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error invoking LLM: {str(e)}")
-
-@app.post("/load_schema")
-async def load_challenge_schema(platform: str, challenge_type: str):
-    schema = load_schema(platform, challenge_type)
-    state["platform"] = platform
-    state["challenge_type"] = challenge_type
-    return schema
-
-@app.post("/retrieve_similar")
-async def retrieve_similar(query: str):
-    similar_challenges = retrieve_similar_challenges(query)
-    return similar_challenges
-
-class FeedbackInput(BaseModel):
-    field: str
-    suggestion: str
-    accepted: bool
-    reason: str | None = None
-
-@app.post("/store_feedback")
-async def store_user_feedback(input: FeedbackInput):
-    store_feedback(input.field, input.suggestion, input.accepted, input.reason)
-    return {"message": "Feedback stored"}
+    platform: Optional[str] = None
+    challenge_type: Optional[str] = None
+    session_id: Optional[str] = None
 
 class FieldInput(BaseModel):
     field: str
-    value: str | dict
+    value: str
     reasoning: str
+    session_id: str
+
+class SessionData(BaseModel):
+    session_id: str
+    state: Dict[str, Any]
+
+# OpenRouter endpoint
+OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
+
+# Schema loading
+def load_schema(platform: str, challenge_type: str) -> Dict:
+    key = f"{platform.lower().replace(' ', '_')}_{challenge_type.lower().replace(' ', '_')}"
+    
+    schema_map = {
+        "topcoder_design": "topcoder_design.json",
+        "kaggle_data_science": "kaggle_data_science.json",
+        "herox_innovation": "herox_innovation.json",
+        "zindi_ai_challenge": "zindi_ai.json"
+    }
+    
+    filename = schema_map.get(key)
+    if filename:
+        try:
+            with open(f"schemas/{filename}", "r") as f:
+                return json.load(f)
+        except:
+            pass
+    
+    # Default schema
+    return {
+        "platform": platform,
+        "challenge_type": challenge_type,
+        "fields": {
+            "title": {"required": True},
+            "description": {"required": True},
+            "timeline": {"required": True},
+            "prizes": {"required": True}
+        }
+    }
+
+# Initialize session
+def init_session(session_id: str) -> Dict:
+    sessions[session_id] = {
+        "fields": {},
+        "reasoning_trace": [],
+        "platform": None,
+        "challenge_type": None,
+        "chat_history": [],
+        "rag_context": []
+    }
+    return sessions[session_id]
+
+# Get or create session
+def get_session(session_id: Optional[str]) -> Dict:
+    if not session_id or session_id not in sessions:
+        return init_session(str(uuid.uuid4()))
+    return sessions[session_id]
+
+# Query OpenRouter model
+def query_openrouter(prompt: str) -> str:
+    headers = {
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "http://localhost:8000",
+        "X-Title": "AI Copilot Agent"
+    }
+    
+    payload = {
+        "model": "mistralai/mistral-7b-instruct:free",  # Verified working model
+        "messages": [{
+            "role": "system",
+            "content": "You are an AI Copilot Agent helping users define challenge specs."
+        }, {
+            "role": "user",
+            "content": prompt
+        }],
+        "max_tokens": 256,
+        "temperature": 0.7
+    }
+    
+    try:
+        response = requests.post(OPENROUTER_ENDPOINT, headers=headers, json=payload, timeout=30)
+        if response.status_code == 200:
+            return response.json()["choices"][0]["message"]["content"].strip()
+        
+        error = response.json().get("error", {})
+        return f"AI service error: {response.status_code} - {error.get('message', '')}"
+    
+    except Exception as e:
+        logger.error(f"Network error: {str(e)}")
+        return "Network issue detected. Please check your connection."
+
+# Generate response with context
+def generate_response(user_input: str, session: Dict) -> str:
+    # Build context
+    context = {
+        "platform": session["platform"],
+        "challenge_type": session["challenge_type"],
+        "current_fields": session["fields"],
+        "rag_context": session["rag_context"][-3:] if session["rag_context"] else "No context"
+    }
+    
+    # Format prompt
+    prompt = f"""
+    Current Context:
+    {json.dumps(context, indent=2)}
+    
+    Chat History:
+    {session['chat_history'][-5:] if session['chat_history'] else 'No history'}
+    
+    User: {user_input}
+    Assistant:"""
+    
+    # Query model
+    response = query_openrouter(prompt)
+    
+    # Update chat history
+    session["chat_history"].append(f"User: {user_input}")
+    session["chat_history"].append(f"Assistant: {response}")
+    if len(session["chat_history"]) > 10:
+        session["chat_history"] = session["chat_history"][-10:]
+    
+    return response
+
+# API Endpoints
+@app.post("/start_session")
+async def start_session():
+    session_id = str(uuid.uuid4())
+    init_session(session_id)
+    return {"session_id": session_id}
+
+@app.post("/scope")
+async def scope_dialogue(input: ScopeInput):
+    try:
+        session = get_session(input.session_id)
+        if input.platform: session["platform"] = input.platform
+        if input.challenge_type: session["challenge_type"] = input.challenge_type
+        
+        response = generate_response(input.user_input, session)
+        sessions[input.session_id] = session
+        return {"response": response, "session_id": input.session_id}
+    except Exception as e:
+        logger.error(f"Error: {str(e)}")
+        return {"response": "System error. Please try again.", "session_id": input.session_id}
 
 @app.post("/add_field")
 async def add_field(input: FieldInput):
-    state["fields"][input.field] = input.value
-    state["reasoning_trace"].append({
-        "field": input.field,
-        "source": input.reasoning,
-        "confidence": 0.9
-    })
-    return {"message": f"Added {input.field}"}
+    try:
+        session = get_session(input.session_id)
+        session["fields"][input.field] = input.value
+        session["reasoning_trace"].append({
+            "field": input.field,
+            "source": input.reasoning,
+            "confidence": 0.9
+        })
+        return {"message": f"Added {input.field}", "session_id": input.session_id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/generate_spec")
-async def generate_challenge_spec():
-    spec = generate_spec()
-    return spec
+@app.get("/generate_spec")
+async def generate_spec(session_id: str):
+    session = get_session(session_id)
+    return {
+        "fields": session["fields"],
+        "reasoning_trace": session["reasoning_trace"],
+        "platform": session["platform"],
+        "challenge_type": session["challenge_type"]
+    }
 
 @app.post("/upload_image")
-async def upload_image(file: UploadFile = File(...)):
+async def upload_image(file: UploadFile = File(...), session_id: str = None):
+    if not session_id:
+        raise HTTPException(status_code=400, detail="Session ID required")
+    
+    session = get_session(session_id)
     contents = await file.read()
-    nparr = np.frombuffer(contents, np.uint8)
-    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-    state["reasoning_trace"].append({
+    base64_image = base64.b64encode(contents).decode('utf-8')
+    
+    session["reasoning_trace"].append({
         "field": "image_context",
-        "source": "User uploaded image for context",
-        "confidence": 0.8
+        "source": "User uploaded image",
+        "confidence": 0.8,
+        "image": base64_image
     })
-    return {"message": "Image uploaded and processed"}
+    
+    session["rag_context"].append("User uploaded a mockup image")
+    return {"message": "Image processed", "session_id": session_id}
+
+@app.post("/retrieve_similar")
+async def retrieve_similar(query: str, session_id: str):
+    session = get_session(session_id)
+    similar_challenges = retrieve_similar_challenges(query)
+    session["rag_context"].extend([c["description"] for c in similar_challenges])
+    return similar_challenges
+
+@app.get("/load_schema")
+async def load_challenge_schema(platform: str, challenge_type: str):
+    return load_schema(platform, challenge_type)
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -2,11 +2,14 @@
     "platform": "Topcoder",
     "challenge_type": "Design",
     "fields": {
-      "title": {"required": true},
-      "overview": {"required": true},
-      "objectives": {"required": true},
-      "timeline": {"required": true},
-      "prize_structure": {"required": true},
-      "judging_criteria": {"required": true}
+      "title": {"required": true, "description": "Challenge title"},
+      "overview": {"required": true, "description": "Brief overview of the challenge"},
+      "objectives": {"required": true, "description": "Specific design objectives"},
+      "target_audience": {"required": false, "description": "Primary users of the design"},
+      "style_guidelines": {"required": false, "description": "Brand style requirements"},
+      "deliverables": {"required": true, "description": "Required design outputs"},
+      "timeline": {"required": true, "description": "Challenge duration in days"},
+      "prize_structure": {"required": true, "description": "Prize distribution details"},
+      "judging_criteria": {"required": true, "description": "Evaluation criteria"}
     }
   }

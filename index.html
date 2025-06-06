@@ -4,287 +4,560 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Copilot Agent</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
         body {
-            margin: 0;
-            background: #000;
-            color: #fff;
-            font-family: Arial, sans-serif;
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: #f1f5f9;
             height: 100vh;
-            overflow-y: auto;
-            position: relative;
+            overflow: hidden;
         }
-        /* Starry background with actual star shapes */
-        body::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%"><rect fill="black" width="100%" height="100%"/><!-- Star 1 --><path d="M50 20 L60 40 L80 40 L65 50 L70 70 L50 60 L30 70 L35 50 L20 40 L40 40 Z" fill="white" opacity="0.8" transform="translate(100, 50) scale(0.5)"/><!-- Star 2 --><path d="M50 20 L60 40 L80 40 L65 50 L70 70 L50 60 L30 70 L35 50 L20 40 L40 40 Z" fill="gray" opacity="0.6" transform="translate(300, 200) scale(0.3)"/><!-- Star 3 --><path d="M50 20 L60 40 L80 40 L65 50 L70 70 L50 60 L30 70 L35 50 L20 40 L40 40 Z" fill="white" opacity="0.9" transform="translate(500, 100) scale(0.4)"/><!-- Star 4 --><path d="M50 20 L60 40 L80 40 L65 50 L70 70 L50 60 L30 70 L35 50 L20 40 L40 40 Z" fill="gray" opacity="0.5" transform="translate(200, 400) scale(0.2)"/><!-- Star 5 --><path d="M50 20 L60 40 L80 40 L65 50 L70 70 L50 60 L30 70 L35 50 L20 40 L40 40 Z" fill="white" opacity="0.7" transform="translate(600, 300) scale(0.3)"/><!-- Star 6 --><path d="M50 20 L60 40 L80 40 L65 50 L70 70 L50 60 L30 70 L35 50 L20 40 L40 40 Z" fill="gray" opacity="0.4" transform="translate(150, 600) scale(0.25)"/></svg>') no-repeat center center;
-            background-size: cover;
-            z-index: -1;
+        
+        .sidebar {
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(10px);
+            border-right: 1px solid #334155;
         }
-        .chat-container {
-            max-width: 700px;
-            margin: 1rem;
-            padding: 1rem;
-        }
-        .header {
-            font-size: 1.5rem;
-            font-weight: bold;
-            margin-bottom: 1rem;
-            text-align: left;
-        }
+        
         .chat-message {
-            margin-bottom: 1rem;
-            padding: 0.75rem;
-            background: rgba(30, 30, 30, 0.9);
-            border: 1px solid #444;
-            border-radius: 8px;
             max-width: 80%;
+            animation: fadeIn 0.3s ease-in;
         }
-        .user-message {
-            background: rgba(50, 50, 50, 0.9);
-            margin-left: auto;
-            text-align: right;
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
-        .input-area {
-            position: sticky;
-            bottom: 0;
-            background: #000;
-            padding: 1rem;
-            border-top: 1px solid #444;
+        
+        .progress-bar {
+            height: 6px;
+            background: #4f46e5;
+            border-radius: 3px;
+            transition: width 0.5s ease;
         }
-        input, select {
-            background: #333;
-            border: 1px solid #555;
-            color: #fff;
-            padding: 0.5rem;
-            border-radius: 5px;
+        
+        .spec-field {
+            border-left: 3px solid #4f46e5;
+            transition: all 0.3s ease;
+        }
+        
+        .spec-field:hover {
+            background: rgba(30, 41, 59, 0.5);
+        }
+        
+        .message-content p {
             margin-bottom: 0.5rem;
         }
-        input:focus, select:focus {
-            outline: none;
-            border-color: #888;
+        
+        .message-content ul, .message-content ol {
+            margin-left: 1.5rem;
+            margin-bottom: 0.5rem;
         }
-        button {
-            background: #444;
-            border: 1px solid #666;
-            color: #fff;
-            padding: 0.5rem;
-            border-radius: 5px;
-            cursor: pointer;
-            margin: 0.25rem 0;
-            transition: background 0.3s ease;
+        
+        .message-content li {
+            margin-bottom: 0.25rem;
         }
-        button:hover {
-            background: #666;
+        
+        .message-content pre {
+            background: #1e293b;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+            margin-bottom: 0.5rem;
         }
-        .response {
-            background: #222;
-            padding: 0.5rem;
-            border-radius: 5px;
-            margin-top: 0.5rem;
-        }
-        .error {
-            color: #ff5555;
-        }
-        .flex {
-            display: flex;
-            gap: 0.5rem;
-            flex-wrap: wrap;
-        }
-        .file-input-label {
-            display: inline-block;
-            background: #444;
-            border: 1px solid #666;
-            color: #fff;
-            padding: 0.5rem;
-            border-radius: 5px;
-            cursor: pointer;
-            text-align: center;
-            margin: 0.25rem 0;
-        }
-        .file-input-label:hover {
-            background: #666;
-        }
-        input[type="file"] {
-            display: none;
+        
+        .message-content code {
+            background: #1e293b;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
         }
     </style>
 </head>
-<body>
-    <div class="chat-container">
-        <div class="header">AI Copilot Agent</div>
-        <div id="chatArea"></div>
-    </div>
-    <div class="input-area">
-        <input type="text" id="input" placeholder="Enter your project goal..." style="width: 100%;">
-        <button onclick="sendRequest()" style="width: 100%;">Send Request</button>
-        <div class="flex">
-            <select id="platform">
-                <option value="Topcoder">Topcoder</option>
-                <option value="Kaggle">Kaggle</option>
-            </select>
-            <select id="challengeType">
-                <option value="Design">Design</option>
-                <option value="Data Science">Data Science</option>
-            </select>
+<body class="flex flex-col h-screen">
+    <!-- Header -->
+    <header class="bg-gray-900 border-b border-gray-800 py-3 px-6 flex items-center justify-between">
+        <div class="flex items-center space-x-4">
+            <h1 class="text-xl font-bold text-indigo-400 flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                </svg>
+                AI Copilot Agent
+            </h1>
+            <div class="text-sm bg-indigo-900 text-indigo-300 px-3 py-1 rounded-full">
+                Phase 1: Challenge Scoping
+            </div>
         </div>
-        <label for="fileInput" class="file-input-label">Upload Image</label>
-        <input type="file" id="fileInput">
-        <button onclick="uploadImage()" style="width: 100%;">Upload Image</button>
-        <button onclick="showSchemaFields()" style="width: 100%;">Show Schema Fields</button>
-        <button onclick="generateSpec()" style="width: 100%;">Generate Specification</button>
+        <div class="flex items-center space-x-3">
+            <div class="text-sm text-gray-400 hidden md:block" id="sessionId">
+                Session: <span class="text-indigo-300 font-mono">Loading...</span>
+            </div>
+            <button onclick="startNewSession()" class="bg-indigo-700 hover:bg-indigo-600 text-white px-4 py-1.5 rounded-lg text-sm font-medium transition">
+                New Session
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="flex flex-1 overflow-hidden">
+        <!-- Left Sidebar -->
+        <div class="sidebar w-80 flex flex-col hidden md:flex">
+            <div class="p-4 border-b border-gray-800">
+                <h2 class="font-semibold text-gray-400 mb-2">Challenge Spec</h2>
+                <div class="mb-3">
+                    <div class="flex justify-between text-sm mb-1">
+                        <span class="text-gray-400">Progress</span>
+                        <span id="progressPercent">0%</span>
+                    </div>
+                    <div class="w-full bg-gray-700 rounded-full h-2">
+                        <div id="progressBar" class="progress-bar h-2 rounded-full" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto p-4">
+                <div id="specPreview" class="space-y-3">
+                    <!-- Spec fields will be populated here -->
+                </div>
+            </div>
+            
+            <div class="p-4 border-t border-gray-800">
+                <button onclick="generateSpec()" class="w-full bg-indigo-700 hover:bg-indigo-600 text-white py-2.5 rounded-lg font-medium transition flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Generate Full Spec
+                </button>
+            </div>
+        </div>
+
+        <!-- Chat Area -->
+        <div class="flex-1 flex flex-col">
+            <!-- Chat Header -->
+            <div class="bg-gray-800 border-b border-gray-700 p-4">
+                <div class="flex flex-wrap gap-3">
+                    <select id="platform" class="bg-gray-700 text-white px-3 py-2 rounded-lg text-sm w-40">
+                        <option value="Topcoder">Topcoder</option>
+                        <option value="Kaggle">Kaggle</option>
+                        <option value="HeroX">HeroX</option>
+                        <option value="Zindi">Zindi</option>
+                    </select>
+                    
+                    <select id="challengeType" class="bg-gray-700 text-white px-3 py-2 rounded-lg text-sm w-48">
+                        <option value="Design">Design</option>
+                        <option value="Data Science">Data Science</option>
+                        <option value="Development">Development</option>
+                        <option value="Testing">Testing</option>
+                    </select>
+                    
+                    <button onclick="showSchemaFields()" class="bg-gray-700 hover:bg-gray-600 text-white px-3 py-2 rounded-lg text-sm flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                        </svg>
+                        Schema Fields
+                    </button>
+                    
+                    <label class="bg-gray-700 hover:bg-gray-600 text-white px-3 py-2 rounded-lg text-sm flex items-center cursor-pointer">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        Upload Image
+                        <input type="file" id="fileInput" class="hidden" accept="image/*">
+                    </label>
+                </div>
+            </div>
+            
+            <!-- Chat Messages -->
+            <div id="chatArea" class="flex-1 overflow-y-auto p-6 space-y-4">
+                <!-- Messages will appear here -->
+            </div>
+            
+            <!-- Input Area -->
+            <div class="bg-gray-800 border-t border-gray-700 p-4">
+                <div class="flex">
+                    <input 
+                        type="text" 
+                        id="input" 
+                        placeholder="Describe your project goal..." 
+                        class="flex-1 bg-gray-700 border border-gray-600 text-white px-4 py-3 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                        onkeypress="if(event.key === 'Enter') sendRequest()"
+                    >
+                    <button 
+                        onclick="sendRequest()" 
+                        class="bg-indigo-700 hover:bg-indigo-600 text-white px-6 py-3 rounded-r-lg font-medium transition flex items-center"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                        </svg>
+                        Send
+                    </button>
+                </div>
+                <div class="mt-3 text-xs text-gray-500">
+                    Tip: Be specific about your project goals. The AI will ask clarifying questions to refine the scope.
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
-        const schema = {
-            "platform": "Topcoder",
-            "challenge_type": "Design",
-            "fields": {
-                "title": {"required": true},
-                "overview": {"required": true}
+        let currentSessionId = null;
+        
+        // Initialize session
+        async function startNewSession() {
+            try {
+                const response = await fetch('http://127.0.0.1:8000/start_session', {
+                    method: 'POST'
+                });
+                
+                if (!response.ok) throw new Error('Failed to start session');
+                
+                const data = await response.json();
+                currentSessionId = data.session_id;
+                document.getElementById('sessionId').innerHTML = `Session: <span class="text-indigo-300 font-mono">${currentSessionId.slice(0, 8)}</span>`;
+                document.getElementById('chatArea').innerHTML = '';
+                addMessage('Welcome! I\'m your AI Copilot. Describe your project goal to get started.', 'system');
+                updateSpecPreview();
+            } catch (error) {
+                console.error('Error starting session:', error);
+                addMessage(`<div class="text-red-500">Error: ${error.message}</div>`, 'system');
             }
-        };
-
+        }
+        
+        // Add message to chat
         function addMessage(content, type = 'system') {
             const chatArea = document.getElementById('chatArea');
             const messageDiv = document.createElement('div');
-            messageDiv.className = `chat-message ${type === 'user' ? 'user-message' : ''}`;
-            messageDiv.innerHTML = content;
+            
+            if (type === 'user') {
+                messageDiv.className = 'chat-message ml-auto bg-indigo-900 text-white p-4 rounded-xl';
+                messageDiv.innerHTML = `
+                    <div class="font-medium text-indigo-300 mb-1">You</div>
+                    <div class="message-content">${content}</div>
+                `;
+            } else if (type === 'system') {
+                messageDiv.className = 'chat-message bg-gray-800 p-4 rounded-xl';
+                messageDiv.innerHTML = `
+                    <div class="flex items-start">
+                        <div class="bg-gray-600 w-8 h-8 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </div>
+                        <div class="flex-1">
+                            <div class="font-medium text-gray-400 mb-1">System</div>
+                            <div class="message-content">${content}</div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                messageDiv.className = 'chat-message bg-gray-800 p-4 rounded-xl';
+                messageDiv.innerHTML = `
+                    <div class="flex items-start">
+                        <div class="bg-indigo-600 w-8 h-8 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                            </svg>
+                        </div>
+                        <div class="flex-1">
+                            <div class="font-medium text-gray-400 mb-1">Copilot</div>
+                            <div class="message-content">${content}</div>
+                        </div>
+                    </div>
+                `;
+            }
+            
             chatArea.appendChild(messageDiv);
             chatArea.scrollTop = chatArea.scrollHeight;
         }
-
-        function showSchemaFields() {
-            let content = `
-                <h3>Schema Fields:</h3>
-                <ul id="fieldList"></ul>
-            `;
-            addMessage(content);
-            const fieldList = document.getElementById('chatArea').lastChild.querySelector('#fieldList');
-            for (let field in schema.fields) {
-                const li = document.createElement('li');
-                li.className = 'mb-2';
-                li.innerHTML = `
-                    <input type="text" id="field_${field}" placeholder="Enter ${field}" class="mr-2 w-3/4">
-                    <button onclick="addField('${field}')">Add Field</button>
-                `;
-                fieldList.appendChild(li);
-            }
-        }
-
-        function sendRequest() {
+        
+        // Send request to backend
+        async function sendRequest() {
             const input = document.getElementById('input').value;
+            if (!input.trim()) return;
+            
+            if (!currentSessionId) {
+                await startNewSession();
+                if (!currentSessionId) return;
+            }
+            
             const platform = document.getElementById('platform').value;
             const challengeType = document.getElementById('challengeType').value;
-            addMessage(`<p>You: ${input}</p>`, 'user');
-            fetch('http://127.0.0.1:8000/scope', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_input: input, platform, challenge_type: challengeType })
-            })
-            .then(res => {
-                if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`);
-                return res.json();
-            })
-            .then(data => {
-                console.log('Response:', data);
-                addMessage(`<div class="response"><p>Response: ${data.response || 'No response'}</p></div>`);
-            })
-            .catch(err => {
-                console.error('Error:', err);
-                addMessage(`<p class="error">Error: ${err.message}</p>`);
-            });
-        }
-
-        function addField(field) {
-            const value = document.getElementById(`field_${field}`).value;
-            if (value) {
-                fetch('http://127.0.0.1:8000/add_field', {
+            
+            addMessage(input, 'user');
+            document.getElementById('input').value = '';
+            
+            try {
+                const response = await fetch('http://127.0.0.1:8000/scope', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ field, value, reasoning: `User provided for ${field}` })
-                })
-                .then(res => {
-                    if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`);
-                    return res.json();
-                })
-                .then(data => {
-                    console.log('Field added:', data);
-                    let fields = JSON.parse(localStorage.getItem('fields') || '{}');
-                    fields[field] = value;
-                    localStorage.setItem('fields', JSON.stringify(fields));
-                    addMessage(`<div class="response"><p>Added: ${field} = ${value}</p></div>`);
-                    updateFields();
-                })
-                .catch(err => {
-                    console.error('Error:', err);
-                    addMessage(`<p class="error">Error: ${err.message}</p>`);
+                    body: JSON.stringify({ 
+                        user_input: input,
+                        platform,
+                        challenge_type: challengeType,
+                        session_id: currentSessionId
+                    })
                 });
+                
+                if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+                
+                const data = await response.json();
+                addMessage(data.response);
+                updateSpecPreview();
+            } catch (error) {
+                console.error('Error:', error);
+                addMessage(`<div class="text-red-500">Error: ${error.message}</div>`, 'system');
             }
         }
-
-        function generateSpec() {
-            fetch('http://127.0.0.1:8000/generate_spec', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            })
-            .then(res => {
-                if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`);
-                return res.json();
-            })
-            .then(data => {
-                console.log('Spec:', data);
-                addMessage(`<div class="response"><pre>Specification:\n${JSON.stringify(data, null, 2)}</pre></div>`);
-            })
-            .catch(err => {
-                console.error('Error:', err);
-                addMessage(`<p class="error">Error: ${err.message}</p>`);
-            });
+        
+        // Show schema fields
+        async function showSchemaFields() {
+            if (!currentSessionId) {
+                addMessage('<div class="text-yellow-500">Please start a session first</div>', 'system');
+                return;
+            }
+            
+            const platform = document.getElementById('platform').value;
+            const challengeType = document.getElementById('challengeType').value;
+            
+            try {
+                const response = await fetch(`http://127.0.0.1:8000/load_schema?platform=${platform}&challenge_type=${challengeType}`);
+                if (!response.ok) throw new Error('Failed to load schema');
+                
+                const schema = await response.json();
+                
+                let content = `
+                    <div class="bg-gray-800 p-4 rounded-xl">
+                        <h3 class="font-semibold text-lg mb-3 text-indigo-300">Schema Fields for ${platform} - ${challengeType}</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                `;
+                
+                for (let field in schema.fields) {
+                    const required = schema.fields[field].required ? 
+                        '<span class="text-red-500 text-xs ml-2">required</span>' : '';
+                    
+                    content += `
+                        <div class="spec-field p-3 rounded-lg bg-gray-700">
+                            <div class="flex items-start">
+                                <div class="flex-1">
+                                    <div class="font-medium">${field}${required}</div>
+                                    <input type="text" id="field_${field}" placeholder="Enter ${field}" class="mt-2 w-full bg-gray-600 text-white px-3 py-1.5 rounded text-sm">
+                                </div>
+                                <button onclick="addField('${field}')" class="ml-2 bg-indigo-700 hover:bg-indigo-600 text-white px-3 py-1.5 text-sm rounded transition">Add</button>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                content += `</div></div>`;
+                addMessage(content, 'system');
+            } catch (error) {
+                console.error('Error:', error);
+                addMessage(`<div class="text-red-500">Error: ${error.message}</div>`, 'system');
+            }
         }
-
-        function uploadImage() {
+        
+        // Add field to spec
+        async function addField(field) {
+            const value = document.getElementById(`field_${field}`).value;
+            if (!value) return;
+            
+            try {
+                const response = await fetch('http://127.0.0.1:8000/add_field', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        field, 
+                        value,
+                        reasoning: `User provided value for ${field}`,
+                        session_id: currentSessionId
+                    })
+                });
+                
+                if (!response.ok) throw new Error('Failed to add field');
+                
+                const data = await response.json();
+                addMessage(`<div class="text-green-400">✓ Added field: <span class="font-medium">${field}</span> = ${value}</div>`, 'system');
+                updateSpecPreview();
+            } catch (error) {
+                console.error('Error:', error);
+                addMessage(`<div class="text-red-500">Error: ${error.message}</div>`, 'system');
+            }
+        }
+        
+        // Generate full spec
+        async function generateSpec() {
+            if (!currentSessionId) {
+                addMessage('<div class="text-yellow-500">Please start a session first</div>', 'system');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`http://127.0.0.1:8000/generate_spec?session_id=${currentSessionId}`);
+                if (!response.ok) throw new Error('Failed to generate spec');
+                
+                const spec = await response.json();
+                
+                let content = `
+                    <div class="bg-gray-800 p-4 rounded-xl">
+                        <h3 class="font-semibold text-lg mb-3 text-indigo-300">Challenge Specification</h3>
+                        <div class="bg-gray-900 p-4 rounded-lg overflow-x-auto">
+                            <pre class="text-sm">${JSON.stringify(spec, null, 2)}</pre>
+                        </div>
+                        <div class="mt-4 flex justify-end">
+                            <button onclick="downloadSpec()" class="bg-indigo-700 hover:bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
+                                Export as JSON
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                addMessage(content, 'system');
+            } catch (error) {
+                console.error('Error:', error);
+                addMessage(`<div class="text-red-500">Error: ${error.message}</div>`, 'system');
+            }
+        }
+        
+        // Download spec as JSON
+        function downloadSpec() {
+            if (!currentSessionId) return;
+            
+            fetch(`http://127.0.0.1:8000/generate_spec?session_id=${currentSessionId}`)
+                .then(response => response.json())
+                .then(spec => {
+                    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(spec, null, 2));
+                    const downloadAnchorNode = document.createElement('a');
+                    downloadAnchorNode.setAttribute("href", dataStr);
+                    downloadAnchorNode.setAttribute("download", `challenge_spec_${currentSessionId.slice(0, 8)}.json`);
+                    document.body.appendChild(downloadAnchorNode);
+                    downloadAnchorNode.click();
+                    downloadAnchorNode.remove();
+                });
+        }
+        
+        // Upload image
+        async function uploadImage() {
             const fileInput = document.getElementById('fileInput');
             const file = fileInput.files[0];
-            if (file) {
-                const formData = new FormData();
-                formData.append('file', file);
-                fetch('http://127.0.0.1:8000/upload_image', {
+            
+            if (!file) {
+                addMessage('<div class="text-yellow-500">Please select an image first</div>', 'system');
+                return;
+            }
+            
+            if (!currentSessionId) {
+                await startNewSession();
+                if (!currentSessionId) return;
+            }
+            
+            try {
+                const response = await fetch('http://127.0.0.1:8000/upload_image', {
                     method: 'POST',
-                    body: formData
-                })
-                .then(res => {
-                    if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`);
-                    return res.json();
-                })
-                .then(data => {
-                    console.log('Upload response:', data);
-                    addMessage(`<div class="response"><p>Image Uploaded: ${data.message || 'Success'}</p></div>`);
-                })
-                .catch(err => {
-                    console.error('Error:', err);
-                    addMessage(`<p class="error">Error: ${err.message}</p>`);
+                    body: (() => {
+                        const formData = new FormData();
+                        formData.append('file', file);
+                        formData.append('session_id', currentSessionId);
+                        return formData;
+                    })()
                 });
-            } else {
-                addMessage('<p class="error">No image selected</p>');
+                
+                if (!response.ok) throw new Error('Failed to upload image');
+                
+                const data = await response.json();
+                addMessage(`<div class="text-green-400">✓ ${data.message}</div>`, 'system');
+                fileInput.value = '';
+            } catch (error) {
+                console.error('Error:', error);
+                addMessage(`<div class="text-red-500">Error: ${error.message}</div>`, 'system');
             }
         }
-
-        function updateFields() {
-            const fields = JSON.parse(localStorage.getItem('fields') || '{}');
-            if (Object.keys(fields).length > 0) {
-                addMessage(`<div class="response"><pre>Current Fields:\n${JSON.stringify(fields, null, 2)}</pre></div>`);
+        
+        // Update spec preview
+        async function updateSpecPreview() {
+            if (!currentSessionId) return;
+            
+            try {
+                const response = await fetch(`http://127.0.0.1:8000/generate_spec?session_id=${currentSessionId}`);
+                if (!response.ok) return;
+                
+                const spec = await response.json();
+                const specPreview = document.getElementById('specPreview');
+                const requiredFields = [];
+                
+                // Get required fields from schema
+                const platform = document.getElementById('platform').value;
+                const challengeType = document.getElementById('challengeType').value;
+                
+                if (platform && challengeType) {
+                    try {
+                        const schemaRes = await fetch(`http://127.0.0.1:8000/load_schema?platform=${platform}&challenge_type=${challengeType}`);
+                        if (schemaRes.ok) {
+                            const schema = await schemaRes.json();
+                            for (const field in schema.fields) {
+                                if (schema.fields[field].required) {
+                                    requiredFields.push(field);
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Error loading schema:', e);
+                    }
+                }
+                
+                // Calculate completion percentage
+                const totalRequired = requiredFields.length;
+                let completed = 0;
+                
+                if (totalRequired > 0) {
+                    requiredFields.forEach(field => {
+                        if (spec.fields[field]) completed++;
+                    });
+                    
+                    const percent = Math.round((completed / totalRequired) * 100);
+                    document.getElementById('progressBar').style.width = `${percent}%`;
+                    document.getElementById('progressPercent').textContent = `${percent}%`;
+                }
+                
+                // Render spec preview
+                let html = '<div class="space-y-3">';
+                
+                if (Object.keys(spec.fields).length === 0) {
+                    html += '<p class="text-gray-500 text-sm">No fields added yet. Start chatting with the AI to build your spec.</p>';
+                } else {
+                    for (const field in spec.fields) {
+                        const isRequired = requiredFields.includes(field);
+                        html += `
+                            <div class="spec-field p-3 rounded-lg bg-gray-800">
+                                <div class="flex justify-between items-start">
+                                    <div>
+                                        <span class="font-medium">${field}</span>
+                                        ${isRequired ? '<span class="text-red-500 text-xs ml-2">required</span>' : ''}
+                                    </div>
+                                </div>
+                                <div class="mt-2 text-sm text-gray-300">${spec.fields[field]}</div>
+                            </div>
+                        `;
+                    }
+                }
+                
+                html += '</div>';
+                specPreview.innerHTML = html;
+            } catch (error) {
+                console.error('Error updating spec preview:', error);
             }
         }
-
-        // Initial setup
+        
+        // Set up event listeners
+        document.getElementById('fileInput').addEventListener('change', uploadImage);
+        document.getElementById('platform').addEventListener('change', updateSpecPreview);
+        document.getElementById('challengeType').addEventListener('change', updateSpecPreview);
+        
+        // Initialize on load
         window.onload = () => {
-            addMessage('<p>Welcome to the AI Copilot Agent! Enter your goal to get started.</p>');
-            updateFields();
+            startNewSession();
+            addMessage('Welcome to the AI Copilot Agent! Enter your project goal to get started.', 'system');
         };
     </script>
 </body>

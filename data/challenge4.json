@@ -1,0 +1,11 @@
+{
+    "platform": "HeroX",
+    "challenge_type": "Innovation",
+    "description": "Develop an AI solution for plastic waste identification in oceans",
+    "title": "Ocean Plastic Detection Challenge",
+    "problem_statement": "Create an AI model that can identify plastic waste in ocean imagery",
+    "solution_requirements": "Must work with satellite and drone imagery",
+    "timeline": {"submission_days": 60},
+    "prize_structure": {"first_place": 20000},
+    "evaluation_criteria": "Accuracy, scalability, innovation"
+  }
