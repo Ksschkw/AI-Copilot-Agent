@@ -1,3 +1,5 @@
 __pycache__
 AI-ENV
 .env
+challenges_cache.pkl 
+rag_index.faiss   
