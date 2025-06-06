@@ -1,0 +1,12 @@
+{
+    "platform": "Topcoder",
+    "challenge_type": "Design",
+    "fields": {
+      "title": {"required": true},
+      "overview": {"required": true},
+      "objectives": {"required": true},
+      "timeline": {"required": true},
+      "prize_structure": {"required": true},
+      "judging_criteria": {"required": true}
+    }
+  }

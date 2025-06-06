@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Copilot Agent</title>
+    <style>
+        body {
+            margin: 0;
+            background: #000;
+            color: #fff;
+            font-family: Arial, sans-serif;
+            height: 100vh;
+            overflow-y: auto;
+            position: relative;
+        }
+        /* Starry background with actual star shapes */
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%"><rect fill="black" width="100%" height="100%"/><!-- Star 1 --><path d="M50 20 L60 40 L80 40 L65 50 L70 70 L50 60 L30 70 L35 50 L20 40 L40 40 Z" fill="white" opacity="0.8" transform="translate(100, 50) scale(0.5)"/><!-- Star 2 --><path d="M50 20 L60 40 L80 40 L65 50 L70 70 L50 60 L30 70 L35 50 L20 40 L40 40 Z" fill="gray" opacity="0.6" transform="translate(300, 200) scale(0.3)"/><!-- Star 3 --><path d="M50 20 L60 40 L80 40 L65 50 L70 70 L50 60 L30 70 L35 50 L20 40 L40 40 Z" fill="white" opacity="0.9" transform="translate(500, 100) scale(0.4)"/><!-- Star 4 --><path d="M50 20 L60 40 L80 40 L65 50 L70 70 L50 60 L30 70 L35 50 L20 40 L40 40 Z" fill="gray" opacity="0.5" transform="translate(200, 400) scale(0.2)"/><!-- Star 5 --><path d="M50 20 L60 40 L80 40 L65 50 L70 70 L50 60 L30 70 L35 50 L20 40 L40 40 Z" fill="white" opacity="0.7" transform="translate(600, 300) scale(0.3)"/><!-- Star 6 --><path d="M50 20 L60 40 L80 40 L65 50 L70 70 L50 60 L30 70 L35 50 L20 40 L40 40 Z" fill="gray" opacity="0.4" transform="translate(150, 600) scale(0.25)"/></svg>') no-repeat center center;
+            background-size: cover;
+            z-index: -1;
+        }
+        .chat-container {
+            max-width: 700px;
+            margin: 1rem;
+            padding: 1rem;
+        }
+        .header {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 1rem;
+            text-align: left;
+        }
+        .chat-message {
+            margin-bottom: 1rem;
+            padding: 0.75rem;
+            background: rgba(30, 30, 30, 0.9);
+            border: 1px solid #444;
+            border-radius: 8px;
+            max-width: 80%;
+        }
+        .user-message {
+            background: rgba(50, 50, 50, 0.9);
+            margin-left: auto;
+            text-align: right;
+        }
+        .input-area {
+            position: sticky;
+            bottom: 0;
+            background: #000;
+            padding: 1rem;
+            border-top: 1px solid #444;
+        }
+        input, select {
+            background: #333;
+            border: 1px solid #555;
+            color: #fff;
+            padding: 0.5rem;
+            border-radius: 5px;
+            margin-bottom: 0.5rem;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: #888;
+        }
+        button {
+            background: #444;
+            border: 1px solid #666;
+            color: #fff;
+            padding: 0.5rem;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 0.25rem 0;
+            transition: background 0.3s ease;
+        }
+        button:hover {
+            background: #666;
+        }
+        .response {
+            background: #222;
+            padding: 0.5rem;
+            border-radius: 5px;
+            margin-top: 0.5rem;
+        }
+        .error {
+            color: #ff5555;
+        }
+        .flex {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        .file-input-label {
+            display: inline-block;
+            background: #444;
+            border: 1px solid #666;
+            color: #fff;
+            padding: 0.5rem;
+            border-radius: 5px;
+            cursor: pointer;
+            text-align: center;
+            margin: 0.25rem 0;
+        }
+        .file-input-label:hover {
+            background: #666;
+        }
+        input[type="file"] {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="header">AI Copilot Agent</div>
+        <div id="chatArea"></div>
+    </div>
+    <div class="input-area">
+        <input type="text" id="input" placeholder="Enter your project goal..." style="width: 100%;">
+        <button onclick="sendRequest()" style="width: 100%;">Send Request</button>
+        <div class="flex">
+            <select id="platform">
+                <option value="Topcoder">Topcoder</option>
+                <option value="Kaggle">Kaggle</option>
+            </select>
+            <select id="challengeType">
+                <option value="Design">Design</option>
+                <option value="Data Science">Data Science</option>
+            </select>
+        </div>
+        <label for="fileInput" class="file-input-label">Upload Image</label>
+        <input type="file" id="fileInput">
+        <button onclick="uploadImage()" style="width: 100%;">Upload Image</button>
+        <button onclick="showSchemaFields()" style="width: 100%;">Show Schema Fields</button>
+        <button onclick="generateSpec()" style="width: 100%;">Generate Specification</button>
+    </div>
+
+    <script>
+        const schema = {
+            "platform": "Topcoder",
+            "challenge_type": "Design",
+            "fields": {
+                "title": {"required": true},
+                "overview": {"required": true}
+            }
+        };
+
+        function addMessage(content, type = 'system') {
+            const chatArea = document.getElementById('chatArea');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `chat-message ${type === 'user' ? 'user-message' : ''}`;
+            messageDiv.innerHTML = content;
+            chatArea.appendChild(messageDiv);
+            chatArea.scrollTop = chatArea.scrollHeight;
+        }
+
+        function showSchemaFields() {
+            let content = `
+                <h3>Schema Fields:</h3>
+                <ul id="fieldList"></ul>
+            `;
+            addMessage(content);
+            const fieldList = document.getElementById('chatArea').lastChild.querySelector('#fieldList');
+            for (let field in schema.fields) {
+                const li = document.createElement('li');
+                li.className = 'mb-2';
+                li.innerHTML = `
+                    <input type="text" id="field_${field}" placeholder="Enter ${field}" class="mr-2 w-3/4">
+                    <button onclick="addField('${field}')">Add Field</button>
+                `;
+                fieldList.appendChild(li);
+            }
+        }
+
+        function sendRequest() {
+            const input = document.getElementById('input').value;
+            const platform = document.getElementById('platform').value;
+            const challengeType = document.getElementById('challengeType').value;
+            addMessage(`<p>You: ${input}</p>`, 'user');
+            fetch('http://127.0.0.1:8000/scope', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_input: input, platform, challenge_type: challengeType })
+            })
+            .then(res => {
+                if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`);
+                return res.json();
+            })
+            .then(data => {
+                console.log('Response:', data);
+                addMessage(`<div class="response"><p>Response: ${data.response || 'No response'}</p></div>`);
+            })
+            .catch(err => {
+                console.error('Error:', err);
+                addMessage(`<p class="error">Error: ${err.message}</p>`);
+            });
+        }
+
+        function addField(field) {
+            const value = document.getElementById(`field_${field}`).value;
+            if (value) {
+                fetch('http://127.0.0.1:8000/add_field', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ field, value, reasoning: `User provided for ${field}` })
+                })
+                .then(res => {
+                    if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`);
+                    return res.json();
+                })
+                .then(data => {
+                    console.log('Field added:', data);
+                    let fields = JSON.parse(localStorage.getItem('fields') || '{}');
+                    fields[field] = value;
+                    localStorage.setItem('fields', JSON.stringify(fields));
+                    addMessage(`<div class="response"><p>Added: ${field} = ${value}</p></div>`);
+                    updateFields();
+                })
+                .catch(err => {
+                    console.error('Error:', err);
+                    addMessage(`<p class="error">Error: ${err.message}</p>`);
+                });
+            }
+        }
+
+        function generateSpec() {
+            fetch('http://127.0.0.1:8000/generate_spec', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(res => {
+                if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`);
+                return res.json();
+            })
+            .then(data => {
+                console.log('Spec:', data);
+                addMessage(`<div class="response"><pre>Specification:\n${JSON.stringify(data, null, 2)}</pre></div>`);
+            })
+            .catch(err => {
+                console.error('Error:', err);
+                addMessage(`<p class="error">Error: ${err.message}</p>`);
+            });
+        }
+
+        function uploadImage() {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            if (file) {
+                const formData = new FormData();
+                formData.append('file', file);
+                fetch('http://127.0.0.1:8000/upload_image', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(res => {
+                    if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`);
+                    return res.json();
+                })
+                .then(data => {
+                    console.log('Upload response:', data);
+                    addMessage(`<div class="response"><p>Image Uploaded: ${data.message || 'Success'}</p></div>`);
+                })
+                .catch(err => {
+                    console.error('Error:', err);
+                    addMessage(`<p class="error">Error: ${err.message}</p>`);
+                });
+            } else {
+                addMessage('<p class="error">No image selected</p>');
+            }
+        }
+
+        function updateFields() {
+            const fields = JSON.parse(localStorage.getItem('fields') || '{}');
+            if (Object.keys(fields).length > 0) {
+                addMessage(`<div class="response"><pre>Current Fields:\n${JSON.stringify(fields, null, 2)}</pre></div>`);
+            }
+        }
+
+        // Initial setup
+        window.onload = () => {
+            addMessage('<p>Welcome to the AI Copilot Agent! Enter your goal to get started.</p>');
+            updateFields();
+        };
+    </script>
+</body>
+</html>

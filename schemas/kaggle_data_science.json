@@ -1,0 +1,13 @@
+{
+    "platform": "Kaggle",
+    "challenge_type": "Data Science",
+    "fields": {
+      "title": {"required": true},
+      "overview": {"required": true},
+      "objectives": {"required": true},
+      "dataset": {"required": true},
+      "evaluation_metric": {"required": true},
+      "timeline": {"required": true},
+      "prize_structure": {"required": true}
+    }
+  }

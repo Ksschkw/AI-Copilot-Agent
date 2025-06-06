@@ -1,0 +1,12 @@
+{
+    "platform": "Kaggle",
+    "challenge_type": "Data Science",
+    "description": "Predict customer churn using provided dataset.",
+    "title": "Customer Churn Prediction",
+    "overview": "Build a model to predict churn based on historical data.",
+    "objectives": "High accuracy, interpretable model.",
+    "dataset": "churn_data.csv",
+    "evaluation_metric": "AUC-ROC",
+    "timeline": {"submission_days": 14},
+    "prize_structure": {"first_place": 1000}
+  }

@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+langchain
+langchain-community
+langchain-core
+faiss-cpu
+python-dotenv
+numpy
+python-multipart
+opencv-python
+langchain-huggingface

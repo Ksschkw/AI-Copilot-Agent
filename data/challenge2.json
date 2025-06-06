@@ -1,0 +1,11 @@
+{
+    "platform": "Topcoder",
+    "challenge_type": "Design",
+    "description": "Design a dashboard for a service app.",
+    "title": "Service App Dashboard Design",
+    "overview": "Design a dashboard with key metrics and navigation.",
+    "objectives": "Clarity, aesthetic appeal.",
+    "timeline": {"submission_days": 7},
+    "prize_structure": {"first_place": 500, "second_place": 300},
+    "judging_criteria": "Visual design, functionality."
+  }

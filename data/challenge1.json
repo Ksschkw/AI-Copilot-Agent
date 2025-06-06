@@ -1,0 +1,11 @@
+{
+    "platform": "Topcoder",
+    "challenge_type": "Design",
+    "description": "Design a sleek UI for a travel app.",
+    "title": "Travel App UI",
+    "overview": "Create wireframes for a travel booking app.",
+    "objectives": "Intuitive design, mobile-friendly.",
+    "timeline": {"submission_days": 7},
+    "prize_structure": {"first_place": 500, "second_place": 250},
+    "judging_criteria": "Creativity, usability."
+  }
