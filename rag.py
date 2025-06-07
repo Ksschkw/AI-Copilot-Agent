@@ -1,124 +1,89 @@
-import faiss
-import numpy as np
-import json
 import os
-import logging
-import pickle
+import json
 import requests
-import time
+import numpy as np
+from typing import List, Dict
 from dotenv import load_dotenv
 
-# Setup logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
+# Load environment variables
 load_dotenv()
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
-if not OPENROUTER_API_KEY:
-    raise ValueError("OpenRouter API key not found")
 
-# Global variables
-index = None
-challenges = []
-EMBEDDING_ENDPOINT = "https://openrouter.ai/api/v1/embeddings"
+# Configuration
+EMBEDDING_API = "https://api-inference.huggingface.co/pipeline/feature-extraction/sentence-transformers/all-MiniLM-L6-v2"
+HF_TOKEN = os.getenv("HF_API_TOKEN", "")  
+SIMILARITY_THRESHOLD = 0.6  # Minimum similarity score
 
-# Get embeddings using OpenRouter API
-def get_embeddings(texts: list) -> list:
-    headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-        "Content-Type": "application/json",
-        "HTTP-Referer": "http://localhost:8000",
-        "X-Title": "AI Copilot Agent"
-    }
+class RAGSystem:
+    def __init__(self):
+        self.challenges = self._load_challenges()
     
-    payload = {
-        "model": "text-embedding-ada-002",  # Verified working model
-        "input": texts
-    }
+    def _load_challenges(self) -> List[Dict]:
+        """Load all challenge JSON files from data directory"""
+        challenges = []
+        for i in range(1, 6):
+            try:
+                with open(f'data/challenge{i}.json', 'r') as f:
+                    data = json.load(f)
+                    challenges.append({
+                        'id': i,
+                        'text': f"{data.get('title','')} {data.get('description','')}",
+                        'data': data
+                    })
+            except Exception:
+                continue
+        return challenges
     
-    try:
-        response = requests.post(EMBEDDING_ENDPOINT, headers=headers, json=payload, timeout=30)
-        if response.status_code == 200:
-            return [item["embedding"] for item in response.json()["data"]]
-        logger.warning(f"Embedding API error: {response.status_code}")
-        return [generate_simple_embedding(text) for text in texts]
-    except Exception as e:
-        logger.error(f"Embedding error: {str(e)}")
-        return [generate_simple_embedding(text) for text in texts]
-
-def generate_simple_embedding(text: str) -> list:
-    """Fallback embedding generation without API"""
-    vec = [0.0] * 1536  # ADA uses 1536-dimensional embeddings
-    for i, char in enumerate(text[:1536]):
-        vec[i] = ord(char) / 256.0
-    return vec
-
-# Load challenges and create index
-def load_rag_index():
-    global index, challenges
-    
-    # Load challenges
-    challenges = []
-    for i in range(1, 6):
+    def _get_embeddings(self, texts: List[str]) -> List[List[float]]:
+        """Get embeddings from free API with fallback"""
+        headers = {"Authorization": f"Bearer {HF_TOKEN}"} if HF_TOKEN else {}
+        
         try:
-            with open(f'data/challenge{i}.json', 'r') as f:
-                challenges.append(json.load(f))
-        except Exception as e:
-            logger.error(f"Error loading challenge{i}.json: {str(e)}")
-    
-    # Create index if not exists
-    if not os.path.exists("rag_index.faiss"):
-        logger.info("Creating new FAISS index...")
-        create_index()
-    else:
-        logger.info("Loading existing FAISS index...")
-        index = faiss.read_index("rag_index.faiss")
-        if os.path.exists("challenges_cache.pkl"):
-            with open("challenges_cache.pkl", "rb") as f:
-                challenges = pickle.load(f)
-
-def create_index():
-    global index, challenges
-    
-    # Get embeddings
-    descriptions = [c.get("description", "") or f"{c.get('title', '')} {c.get('overview', '')}" 
-                   for c in challenges]
-    
-    logger.info(f"Embedding {len(descriptions)} descriptions...")
-    
-    # Process all texts at once
-    embeddings = get_embeddings(descriptions)
-    embeddings = np.array(embeddings).astype('float32')
-    
-    # Create and save index
-    index = faiss.IndexFlatL2(embeddings.shape[1])
-    index.add(embeddings)
-    faiss.write_index(index, "rag_index.faiss")
-    
-    # Save challenges cache
-    with open("challenges_cache.pkl", "wb") as f:
-        pickle.dump(challenges, f)
-
-def retrieve_similar_challenges(query: str, k: int = 3) -> list:
-    if index is None:
-        load_rag_index()
-    
-    try:
-        # Embed query
-        query_embedding = get_embeddings([query])[0]
-        query_embedding = np.array(query_embedding).astype('float32').reshape(1, -1)
+            response = requests.post(
+                EMBEDDING_API,
+                headers=headers,
+                json={"inputs": texts},
+                timeout=10
+            )
+            if response.status_code == 200:
+                return response.json()
+        except Exception:
+            pass
         
-        # Search index
-        distances, indices = index.search(query_embedding, k)
+        # Fallback: Simple keyword-based vectors
+        all_words = list(set(word for text in texts for word in text.lower().split()))
+        return [
+            [text.lower().count(word) for word in all_words]
+            for text in texts
+        ]
+    
+    def find_similar(self, query: str, k: int = 3) -> List[Dict]:
+        """Find similar challenges without vector DB"""
+        if not self.challenges:
+            return []
         
-        # Return similar challenges
-        return [challenges[i] for i in indices[0] if i < len(challenges)]
-    except Exception as e:
-        logger.error(f"Retrieval error: {str(e)}")
-        return []
+        # Get embeddings
+        texts = [c['text'] for c in self.challenges]
+        text_embeddings = self._get_embeddings(texts)
+        query_embedding = self._get_embeddings([query])[0]
+        
+        # Calculate similarities
+        results = []
+        for challenge, emb in zip(self.challenges, text_embeddings):
+            try:
+                similarity = np.dot(query_embedding, emb) / (
+                    np.linalg.norm(query_embedding) * np.linalg.norm(emb)
+                )
+                if similarity > SIMILARITY_THRESHOLD:
+                    results.append((similarity, challenge['data']))
+            except Exception:
+                continue
+        
+        # Return top k matches
+        return [item[1] for item in sorted(results, reverse=True)[:k]]
 
-# Preload index when module is imported
-try:
-    load_rag_index()
-except Exception as e:
-    logger.error(f"Failed to load RAG index: {str(e)}")
+# Initialize RAG system
+rag = RAGSystem()
+
+# Public interface
+def retrieve_similar_challenges(query: str, k: int = 3) -> List[Dict]:
+    return rag.find_similar(query, k)

@@ -9,7 +9,10 @@ import uuid
 import base64
 from dotenv import load_dotenv
 from rag import retrieve_similar_challenges
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, TypedDict, Annotated
+from langgraph.graph import StateGraph, END
+from langgraph.graph.message import MessagesState
+from langchain_core.messages import HumanMessage, SystemMessage
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -31,24 +34,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Session state management
-sessions: Dict[str, Dict] = {}
-
-class ScopeInput(BaseModel):
-    user_input: str
-    platform: Optional[str] = None
-    challenge_type: Optional[str] = None
-    session_id: Optional[str] = None
-
-class FieldInput(BaseModel):
-    field: str
-    value: str
-    reasoning: str
+# Session state for LangGraph
+class AgentState(TypedDict):
     session_id: str
-
-class SessionData(BaseModel):
-    session_id: str
-    state: Dict[str, Any]
+    fields: Dict[str, Any]
+    reasoning_trace: list
+    platform: Optional[str]
+    challenge_type: Optional[str]
+    chat_history: list
+    rag_context: list
+    messages: MessagesState
 
 # OpenRouter endpoint
 OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
@@ -72,7 +67,6 @@ def load_schema(platform: str, challenge_type: str) -> Dict:
         except:
             pass
     
-    # Default schema
     return {
         "platform": platform,
         "challenge_type": challenge_type,
@@ -84,26 +78,8 @@ def load_schema(platform: str, challenge_type: str) -> Dict:
         }
     }
 
-# Initialize session
-def init_session(session_id: str) -> Dict:
-    sessions[session_id] = {
-        "fields": {},
-        "reasoning_trace": [],
-        "platform": None,
-        "challenge_type": None,
-        "chat_history": [],
-        "rag_context": []
-    }
-    return sessions[session_id]
-
-# Get or create session
-def get_session(session_id: Optional[str]) -> Dict:
-    if not session_id or session_id not in sessions:
-        return init_session(str(uuid.uuid4()))
-    return sessions[session_id]
-
 # Query OpenRouter model
-def query_openrouter(prompt: str) -> str:
+def query_openrouter(messages: list) -> str:
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
         "Content-Type": "application/json",
@@ -113,14 +89,8 @@ def query_openrouter(prompt: str) -> str:
     
     payload = {
         "model": "deepseek/deepseek-chat-v3-0324:free",
-        "messages": [{
-            "role": "system",
-            "content": "You are an AI Copilot Agent helping users define challenge specs. Provide complete, detailed responses and ask for clarification if the user's input is vague, you are not allowed to impose a scope. do not assume constraints. also limit your replies to a maximum of 512 tokens"
-        }, {
-            "role": "user",
-            "content": prompt
-        }],
-        "max_tokens": 512,  # Increased from 256 to 512
+        "messages": messages,
+        "max_tokens": 512,
         "temperature": 0.7
     }
     
@@ -136,37 +106,83 @@ def query_openrouter(prompt: str) -> str:
         logger.error(f"Network error: {str(e)}")
         return "Network issue detected. Please check your connection."
 
-# Generate response with context
-def generate_response(user_input: str, session: Dict) -> str:
-    # Build context
+# LangGraph Agent
+def agent_node(state: AgentState) -> AgentState:
+    # Build context for prompt
     context = {
-        "platform": session["platform"],
-        "challenge_type": session["challenge_type"],
-        "current_fields": session["fields"],
-        "rag_context": session["rag_context"][-3:] if session["rag_context"] else "No context"
+        "platform": state["platform"],
+        "challenge_type": state["challenge_type"],
+        "current_fields": state["fields"],
+        "rag_context": state["rag_context"][-3:] if state["rag_context"] else "No context"
     }
     
-    # Format prompt
-    prompt = f"""
+    # Prepare messages
+    messages = [
+        SystemMessage(content="You are an AI Copilot Agent helping users define challenge specs. Provide complete, detailed responses and ask for clarification if the user's input is vague. Do not assume constraints. Limit replies to 512 tokens."),
+        *state["messages"][-5:],  # Include last 5 messages
+        HumanMessage(content=state["messages"][-1].content)  # Latest user input
+    ]
+    
+    # Add context to the last message
+    messages[-1].content = f"""
     Current Context:
     {json.dumps(context, indent=2)}
     
-    Chat History:
-    {session['chat_history'][-5:] if session['chat_history'] else 'No history'}
+    User: {messages[-1].content}
+    Assistant:
+    """
     
-    User: {user_input}
-    Assistant:"""
+    # Map LangChain messages to OpenRouter format
+    def map_message_role(message):
+        if isinstance(message, SystemMessage):
+            return "system"
+        elif isinstance(message, HumanMessage):
+            return "user"
+        return "assistant"  # Fallback for any other message type
+    
+    openrouter_messages = [
+        {"role": map_message_role(m), "content": m.content} for m in messages
+    ]
     
     # Query model
-    response = query_openrouter(prompt)
+    response = query_openrouter(openrouter_messages)
     
-    # Update chat history
-    session["chat_history"].append(f"User: {user_input}")
-    session["chat_history"].append(f"Assistant: {response}")
-    if len(session["chat_history"]) > 10:
-        session["chat_history"] = session["chat_history"][-10:]
+    # Update state
+    state["chat_history"].append(f"User: {messages[-1].content}")
+    state["chat_history"].append(f"Assistant: {response}")
+    if len(state["chat_history"]) > 10:
+        state["chat_history"] = state["chat_history"][-10:]
     
-    return response
+    state["messages"].append(HumanMessage(content=response))
+    return state
+
+# Define LangGraph workflow
+workflow = StateGraph(AgentState)
+workflow.add_node("agent", agent_node)
+workflow.set_entry_point("agent")
+workflow.add_edge("agent", END)
+agent = workflow.compile()
+
+# Session management
+sessions: Dict[str, AgentState] = {}
+
+def init_session(session_id: str) -> AgentState:
+    sessions[session_id] = {
+        "session_id": session_id,
+        "fields": {},
+        "reasoning_trace": [],
+        "platform": None,
+        "challenge_type": None,
+        "chat_history": [],
+        "rag_context": [],
+        "messages": []
+    }
+    return sessions[session_id]
+
+def get_session(session_id: Optional[str]) -> AgentState:
+    if not session_id or session_id not in sessions:
+        return init_session(str(uuid.uuid4()))
+    return sessions[session_id]
 
 # API Endpoints
 @app.post("/start_session")
@@ -175,19 +191,35 @@ async def start_session():
     init_session(session_id)
     return {"session_id": session_id}
 
+class ScopeInput(BaseModel):
+    user_input: str
+    platform: Optional[str] = None
+    challenge_type: Optional[str] = None
+    session_id: Optional[str] = None
+
 @app.post("/scope")
 async def scope_dialogue(input: ScopeInput):
     try:
         session = get_session(input.session_id)
-        if input.platform: session["platform"] = input.platform
-        if input.challenge_type: session["challenge_type"] = input.challenge_type
+        if input.platform:
+            session["platform"] = input.platform
+        if input.challenge_type:
+            session["challenge_type"] = input.challenge_type
         
-        response = generate_response(input.user_input, session)
-        sessions[input.session_id] = session
-        return {"response": response, "session_id": input.session_id}
+        session["messages"].append(HumanMessage(content=input.user_input))
+        result = agent.invoke(session)
+        
+        sessions[input.session_id] = result
+        return {"response": result["messages"][-1].content, "session_id": input.session_id}
     except Exception as e:
         logger.error(f"Error: {str(e)}")
         return {"response": "System error. Please try again.", "session_id": input.session_id}
+
+class FieldInput(BaseModel):
+    field: str
+    value: str
+    reasoning: str
+    session_id: str
 
 @app.post("/add_field")
 async def add_field(input: FieldInput):
@@ -214,18 +246,12 @@ async def generate_spec(session_id: str):
     }
 
 @app.post("/upload_image")
-async def upload_image(
-    file: UploadFile = File(...), 
-    session_id: str = Form(...)  # Change to Form instead of query param
-):
+async def upload_image(file: UploadFile = File(...), session_id: str = Form(...)):
     try:
         session = get_session(session_id)
         contents = await file.read()
         
-        # Store image in session (base64 encoded)
         base64_image = base64.b64encode(contents).decode('utf-8')
-        
-        # Add to reasoning trace
         session["reasoning_trace"].append({
             "field": "image_context",
             "source": "User uploaded image for context",
@@ -233,7 +259,6 @@ async def upload_image(
             "image": base64_image
         })
         
-        # Add description to RAG context
         image_description = "User uploaded a reference image for design context"
         session["rag_context"].append(image_description)
         

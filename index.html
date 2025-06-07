@@ -438,40 +438,17 @@
         }
         
         // Upload image
-        async function uploadImage() {
-            const fileInput = document.getElementById('fileInput');
-            const file = fileInput.files[0];
-            
-            if (!file) {
-                addMessage('<div class="text-yellow-500">Please select an image first</div>', 'system');
-                return;
-            }
-            
-            if (!currentSessionId) {
-                await startNewSession();
-                if (!currentSessionId) return;
-            }
-            
-            try {
-                const response = await fetch('http://127.0.0.1:8000/upload_image', {
-                    method: 'POST',
-                    body: (() => {
-                        const formData = new FormData();
-                        formData.append('file', file);
-                        formData.append('session_id', currentSessionId);
-                        return formData;
-                    })()
-                });
-                
-                if (!response.ok) throw new Error('Failed to upload image');
-                
-                const data = await response.json();
-                addMessage(`<div class="text-green-400">✓ ${data.message}</div>`, 'system');
-                fileInput.value = '';
-            } catch (error) {
-                console.error('Error:', error);
-                addMessage(`<div class="text-red-500">Error: ${error.message}</div>`, 'system');
-            }
+        async function uploadImage(sessionId, file) {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('session_id', sessionId);
+
+            const response = await fetch('/upload_image', {
+                method: 'POST',
+                body: formData
+            });
+
+            return response.json();
         }
         
         // Update spec preview
