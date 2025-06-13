@@ -118,7 +118,7 @@ def agent_node(state: AgentState) -> AgentState:
     
     # Prepare messages
     messages = [
-        SystemMessage(content="You are an AI Copilot Agent helping users define challenge specs. Provide complete, detailed responses and ask for clarification if the user's input is vague. Do not assume constraints. Limit replies to 512 tokens."),
+        SystemMessage(content="You are an AI Copilot Agent helping users define challenge specs. Provide complete, detailed responses **using markdown formatting** (e.g., headers, lists, tables). Ask for clarification if the user's input is vague. Do not assume constraints. Limit replies to 512 tokens."),
         *state["messages"][-5:],  # Include last 5 messages
         HumanMessage(content=state["messages"][-1].content)  # Latest user input
     ]
