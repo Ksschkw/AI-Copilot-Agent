@@ -5,8 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Copilot Agent</title>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.5/purify.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.7.0/styles/github.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.2.0/github-markdown.min.css">
     <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.7.0/lib/highlight.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
@@ -51,69 +53,46 @@
             background: rgba(30, 41, 59, 0.5);
         }
         
-        .message-content p {
-            margin-bottom: 0.5rem;
-        }
-        
-        .message-content ul, .message-content ol {
-            margin-left: 1.5rem;
-            margin-bottom: 0.5rem;
-        }
-        
-        .message-content li {
-            margin-bottom: 0.25rem;
-        }
-        
-        .message-content pre {
-            background: #1e293b;
-            padding: 1rem;
-            border-radius: 0.5rem;
-            overflow-x: auto;
-            margin-bottom: 0.5rem;
-        }
-        
-        .message-content code {
-            background: #1e293b;
-            padding: 0.25rem 0.5rem;
-            border-radius: 0.25rem;
-        }
-        
         /* Markdown-specific styles */
-        .message-content table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 1rem 0;
+        .markdown-body {
+            background: transparent !important;
+            color: #f1f5f9 !important;
+            padding: 0 !important;
         }
-        .message-content th, 
-        .message-content td {
-            border: 1px solid #4b5563;
-            padding: 8px;
-            text-align: left;
+        
+        .markdown-body h1, 
+        .markdown-body h2, 
+        .markdown-body h3, 
+        .markdown-body h4 {
+            color: #e2e8f0 !important;
+            border-color: #4b5563 !important;
         }
-        .message-content th {
-            background-color: #374151;
+        
+        .markdown-body p, 
+        .markdown-body li, 
+        .markdown-body blockquote {
+            color: #cbd5e1 !important;
         }
-        .message-content tr:nth-child(even) {
-            background-color: #1f2937;
+        
+        .markdown-body a {
+            color: #93c5fd !important;
         }
-        .message-content pre {
-            background: #1e293b;
-            padding: 1rem;
+        
+        .markdown-body pre {
+            background: #1e293b !important;
             border-radius: 0.5rem;
-            overflow-x: auto;
         }
-        .message-content code {
-            background: #1e293b;
-            padding: 0.2rem 0.4rem;
-            border-radius: 0.25rem;
+        
+        .markdown-body code {
+            background: #1e293b !important;
         }
-        .message-content ul, 
-        .message-content ol {
-            margin-left: 1.5rem;
-            margin-bottom: 1rem;
+        
+        .markdown-body table th {
+            background-color: #374151 !important;
         }
-        .message-content li {
-            margin-bottom: 0.5rem;
+        
+        .markdown-body table tr:nth-child(even) {
+            background-color: #1f2937 !important;
         }
     </style>
 </head>
@@ -245,7 +224,7 @@
     <script>
         let currentSessionId = null;
         
-        // Configure Marked.js
+        // Configure Marked.js with proper settings
         marked.setOptions({
             gfm: true,
             breaks: true,
@@ -278,16 +257,25 @@
             }
         }
         
-        // Add message to chat
+        // Add message to chat with proper markdown rendering
         function addMessage(content, type = 'system') {
             const chatArea = document.getElementById('chatArea');
             const messageDiv = document.createElement('div');
+            
+            // Sanitize and parse Markdown for all message types
+            let renderedContent = content;
+            
+            if (typeof content === 'string') {
+                // Only parse if it's a string (not already HTML)
+                const parsedMarkdown = marked.parse(content);
+                renderedContent = DOMPurify.sanitize(parsedMarkdown);
+            }
             
             if (type === 'user') {
                 messageDiv.className = 'chat-message ml-auto bg-indigo-900 text-white p-4 rounded-xl';
                 messageDiv.innerHTML = `
                     <div class="font-medium text-indigo-300 mb-1">You</div>
-                    <div class="message-content">${content}</div>
+                    <div class="markdown-body">${renderedContent}</div>
                 `;
             } else if (type === 'system') {
                 messageDiv.className = 'chat-message bg-gray-800 p-4 rounded-xl';
@@ -300,11 +288,12 @@
                         </div>
                         <div class="flex-1">
                             <div class="font-medium text-gray-400 mb-1">System</div>
-                            <div class="message-content">${content}</div>
+                            <div class="markdown-body">${renderedContent}</div>
                         </div>
                     </div>
                 `;
             } else {
+                // For AI responses
                 messageDiv.className = 'chat-message bg-gray-800 p-4 rounded-xl';
                 messageDiv.innerHTML = `
                     <div class="flex items-start">
@@ -315,13 +304,22 @@
                         </div>
                         <div class="flex-1">
                             <div class="font-medium text-gray-400 mb-1">Copilot</div>
-                            <div class="message-content">${marked.parse(content)}</div>
+                            <div class="markdown-body">${renderedContent}</div>
                         </div>
                     </div>
                 `;
             }
             
             chatArea.appendChild(messageDiv);
+            
+            // Apply syntax highlighting to all code blocks
+            setTimeout(() => {
+                const codeBlocks = messageDiv.querySelectorAll('pre code');
+                codeBlocks.forEach(block => {
+                    hljs.highlightElement(block);
+                });
+            }, 10);
+            
             chatArea.scrollTop = chatArea.scrollHeight;
         }
         
